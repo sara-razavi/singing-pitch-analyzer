@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+
+# my own recordings, not for github
+recordings/
