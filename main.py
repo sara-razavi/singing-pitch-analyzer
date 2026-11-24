@@ -51,6 +51,35 @@ def find_silent_parts(volume, rate, min_length=0.3):
     return parts
 
 
+def detect_pitch(frame, rate, low=70, high=1000):
+    frame = frame - np.mean(frame)
+    corr = np.correlate(frame, frame, mode="full")
+    corr = corr[len(frame) - 1:]
+    if corr[0] == 0:
+        return 0
+    corr = corr / corr[0]
+
+    min_lag = int(rate / high)
+    max_lag = int(rate / low)
+    lag = min_lag + np.argmax(corr[min_lag:max_lag])
+
+    # noise or breathing
+    if corr[lag] < 0.5:
+        return 0
+    return rate / lag
+
+
+def get_pitches(frames, volume, rate):
+    limit = np.percentile(volume, 95) * 0.03
+    pitches = []
+    for i in range(len(frames)):
+        if volume[i] < limit:
+            pitches.append(0)
+        else:
+            pitches.append(detect_pitch(frames[i], rate))
+    return np.array(pitches)
+
+
 def plot_waveform(samples, rate, silent_parts, title):
     time = np.arange(len(samples)) / rate
 
@@ -110,6 +139,14 @@ for part in silent_parts:
     print(" ", round(part[0], 2), "to", round(part[1], 2), "s")
     silent_time += part[1] - part[0]
 print("Silence:", round(silent_time, 2), "s (" + str(round(silent_time / length * 100, 1)) + "% of the recording)")
+
+pitches = get_pitches(frames, volume, rate)
+voiced = pitches[pitches > 0]
+print()
+print("Pitch found in", len(voiced), "of", len(frames), "frames")
+print("Average pitch:", round(np.mean(voiced), 1), "Hz")
+print("Lowest pitch:", round(np.min(voiced), 1), "Hz")
+print("Highest pitch:", round(np.max(voiced), 1), "Hz")
 
 plot_waveform(samples, rate, silent_parts, filename)
 plot_spectrogram(frames, rate, filename)
