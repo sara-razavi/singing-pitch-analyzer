@@ -1,7 +1,10 @@
 import wave
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
+FOLDER = "recordings"
 
 # about 46 ms
 FRAME_SIZE = 2048
@@ -281,53 +284,93 @@ def plot_pitch(pitches, smooth, rate, title):
     plt.show()
 
 
+def list_recordings():
+    files = []
+    for name in sorted(os.listdir(FOLDER)):
+        if name.lower().endswith(".wav"):
+            files.append(name)
+    return files
+
+
+def choose_recording(question):
+    files = list_recordings()
+    print()
+    for i in range(len(files)):
+        print(str(i + 1) + ".", files[i])
+    answer = input(question + " ").strip()
+
+    if answer.isdigit():
+        return files[int(answer) - 1]
+    if not answer.lower().endswith(".wav"):
+        answer = answer + ".wav"
+    if answer not in files:
+        print("Can't find", answer, "in the", FOLDER, "folder")
+        return None
+    return answer
+
+
+def analyze(filename):
+    path = os.path.join(FOLDER, filename)
+    samples, rate, channels, width = read_wav(path)
+    length = len(samples) / rate
+
+    print()
+    print("File:", path)
+    print("Channels:", channels)
+    print("Sample rate:", rate, "Hz")
+    print("Sample width:", width * 8, "bit")
+    print("Length:", round(length, 2), "seconds")
+
+    frames = split_frames(samples)
+    volume = get_volume(frames)
+
+    silent_parts = find_silent_parts(volume, rate)
+    silent_time = 0
+    print()
+    print("Silent parts:")
+    for part in silent_parts:
+        print(" ", round(part[0], 2), "to", round(part[1], 2), "s")
+        silent_time += part[1] - part[0]
+    print("Silence:", round(silent_time, 2), "s (" + str(round(silent_time / length * 100, 1)) + "% of the recording)")
+
+    pitches = get_pitches(frames, volume, rate)
+    smooth = smooth_pitch(pitches)
+    voiced = smooth[smooth > 0]
+    print()
+    print("Pitch found in", len(voiced), "of", len(frames), "frames")
+    print("Average pitch:", round(np.mean(voiced), 1), "Hz")
+    print("Lowest pitch:", round(np.min(voiced), 1), "Hz")
+    print("Highest pitch:", round(np.max(voiced), 1), "Hz")
+
+    notes = get_notes(smooth, rate)
+    print()
+    print("Notes (first 20, all of them are in the csv):")
+    print(notes.head(20).to_string(index=False))
+
+    show_summary(notes, smooth, rate, silent_time)
+
+    name = filename.replace(".wav", "")
+    save_results(name, pitches, smooth, notes, rate)
+
+    plot_waveform(samples, rate, silent_parts, filename)
+    plot_spectrogram(frames, rate, filename)
+    plot_pitch(pitches, smooth, rate, filename)
+
+
 print("Singing Pitch Analyzer")
 print("----------------------")
 
-filename = input("Which recording do you want to analyze? ")
-path = "recordings/" + filename
+while True:
+    print()
+    print("1. Analyze a recording")
+    print("2. Exit")
+    choice = input("Choose: ").strip()
 
-samples, rate, channels, width = read_wav(path)
-length = len(samples) / rate
-
-print()
-print("File:", path)
-print("Channels:", channels)
-print("Sample rate:", rate, "Hz")
-print("Sample width:", width * 8, "bit")
-print("Length:", round(length, 2), "seconds")
-
-frames = split_frames(samples)
-volume = get_volume(frames)
-
-silent_parts = find_silent_parts(volume, rate)
-silent_time = 0
-print()
-print("Silent parts:")
-for part in silent_parts:
-    print(" ", round(part[0], 2), "to", round(part[1], 2), "s")
-    silent_time += part[1] - part[0]
-print("Silence:", round(silent_time, 2), "s (" + str(round(silent_time / length * 100, 1)) + "% of the recording)")
-
-pitches = get_pitches(frames, volume, rate)
-smooth = smooth_pitch(pitches)
-voiced = smooth[smooth > 0]
-print()
-print("Pitch found in", len(voiced), "of", len(frames), "frames")
-print("Average pitch:", round(np.mean(voiced), 1), "Hz")
-print("Lowest pitch:", round(np.min(voiced), 1), "Hz")
-print("Highest pitch:", round(np.max(voiced), 1), "Hz")
-
-notes = get_notes(smooth, rate)
-print()
-print("Notes (first 20, all of them are in the csv):")
-print(notes.head(20).to_string(index=False))
-
-show_summary(notes, smooth, rate, silent_time)
-
-name = filename.replace(".wav", "")
-save_results(name, pitches, smooth, notes, rate)
-
-plot_waveform(samples, rate, silent_parts, filename)
-plot_spectrogram(frames, rate, filename)
-plot_pitch(pitches, smooth, rate, filename)
+    if choice == "1":
+        filename = choose_recording("Which recording do you want to analyze?")
+        if filename != None:
+            analyze(filename)
+    elif choice == "2":
+        break
+    else:
+        print("Choose 1 or 2")
