@@ -3,3 +3,5 @@ __pycache__/
 
 # my own recordings, not for github
 recordings/
+
+results/

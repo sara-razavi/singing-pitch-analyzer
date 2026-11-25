@@ -165,6 +165,60 @@ def note_row(pitches, start, end, rate):
     return [name, round(start_time, 2), round(end_time, 2), round(end_time - start_time, 2), round(pitch, 1), cents]
 
 
+def show_summary(notes, pitches, rate, silent_time):
+    voiced = pitches[pitches > 0]
+    singing = len(voiced) * HOP / rate
+
+    # short notes at the edges were mostly octave jumps
+    long_notes = notes[notes["length"] >= 0.3]
+    if len(long_notes) == 0:
+        long_notes = notes
+    midi = 69 + 12 * np.log2(long_notes["pitch"] / 440)
+    lowest = long_notes.loc[midi.idxmin()]
+    highest = long_notes.loc[midi.idxmax()]
+    time_per_note = notes.groupby("note")["length"].sum()
+    away = notes["cents"].abs().mean()
+
+    print()
+    print("Summary")
+    print("-------")
+    print("Singing:", round(singing, 1), "s, silence:", round(silent_time, 1), "s")
+    print("Range:", lowest["note"], "to", highest["note"], "(" + str(round(midi.max() - midi.min())) + " semitones)")
+    print("Most sung note:", time_per_note.idxmax())
+    print("Average distance from the nearest note:", round(away), "cents")
+    if away < 15:
+        print("Most of the notes are close to the normal 12 notes")
+    else:
+        print("A lot of notes are away from the normal 12 notes (out of tune? or koron/sori)")
+
+
+def save_results(name, pitches, smooth, notes, rate):
+    times = np.arange(len(pitches)) * HOP / rate
+    note_names = []
+    cents = []
+    for p in smooth:
+        if p > 0:
+            note, c = freq_to_note(p)
+            note_names.append(note)
+            cents.append(c)
+        else:
+            note_names.append("")
+            cents.append(None)
+
+    frames_table = pd.DataFrame({
+        "time": np.round(times, 3),
+        "pitch": np.round(pitches, 1),
+        "smooth_pitch": np.round(smooth, 1),
+        "note": note_names,
+        "cents": cents
+    })
+    frames_table.to_csv("results/" + name + "_pitch.csv", index=False)
+    notes.to_csv("results/" + name + "_notes.csv", index=False)
+
+    print()
+    print("Saved results/" + name + "_pitch.csv and results/" + name + "_notes.csv")
+
+
 def plot_waveform(samples, rate, silent_parts, title):
     time = np.arange(len(samples)) / rate
 
@@ -266,8 +320,13 @@ print("Highest pitch:", round(np.max(voiced), 1), "Hz")
 
 notes = get_notes(smooth, rate)
 print()
-print("Notes:")
-print(notes.to_string(index=False))
+print("Notes (first 20, all of them are in the csv):")
+print(notes.head(20).to_string(index=False))
+
+show_summary(notes, smooth, rate, silent_time)
+
+name = filename.replace(".wav", "")
+save_results(name, pitches, smooth, notes, rate)
 
 plot_waveform(samples, rate, silent_parts, filename)
 plot_spectrogram(frames, rate, filename)
