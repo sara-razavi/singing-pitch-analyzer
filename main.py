@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from real_notes import find_real_notes, plot_real_notes
+
 FOLDER = "recordings"
 
 # about 46 ms
@@ -357,13 +359,37 @@ def analyze(filename):
     plot_pitch(pitches, smooth, rate, filename)
 
 
+def get_pitch_curve(filename):
+    samples, rate, channels, width = read_wav(os.path.join(FOLDER, filename))
+    frames = split_frames(samples)
+    volume = get_volume(frames)
+    pitches = get_pitches(frames, volume, rate)
+    smooth = smooth_pitch(pitches)
+    return samples, rate, smooth
+
+
+def show_real_notes(filename):
+    samples, rate, smooth = get_pitch_curve(filename)
+    print()
+    print("Looking for the notes you really sing in", filename)
+    table, midi, tuning = find_real_notes(smooth)
+
+    print()
+    print("Your tuning:", round(tuning * 100), "cents from A = 440 Hz")
+    print(table.to_string(index=False))
+    between = table[table["kind"] != "normal"]
+    print(len(table), "notes,", len(between), "of them between the 12 normal notes")
+    plot_real_notes(midi, table, tuning, filename)
+
+
 print("Singing Pitch Analyzer")
 print("----------------------")
 
 while True:
     print()
     print("1. Analyze a recording")
-    print("2. Exit")
+    print("2. Find the notes I really sing")
+    print("3. Exit")
     choice = input("Choose: ").strip()
 
     if choice == "1":
@@ -371,6 +397,10 @@ while True:
         if filename != None:
             analyze(filename)
     elif choice == "2":
+        filename = choose_recording("Which recording?")
+        if filename != None:
+            show_real_notes(filename)
+    elif choice == "3":
         break
     else:
-        print("Choose 1 or 2")
+        print("Choose 1, 2 or 3")
