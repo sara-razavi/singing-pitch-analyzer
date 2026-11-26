@@ -31,6 +31,9 @@ def stable_midi(pitches):
 
 def find_real_notes(pitches, show_scores=True):
     midi = stable_midi(pitches)
+    if len(midi) < 50:
+        print("Not enough singing to find the notes")
+        return None
     x = midi.reshape(-1, 1)
 
     best_k = 2

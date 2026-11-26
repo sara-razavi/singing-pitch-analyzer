@@ -171,6 +171,11 @@ def note_row(pitches, start, end, rate):
 
 
 def show_summary(notes, pitches, rate, silent_time):
+    if len(notes) == 0:
+        print()
+        print("No notes found, is there any singing in this recording?")
+        return
+
     voiced = pitches[pitches > 0]
     singing = len(voiced) * HOP / rate
 
@@ -340,9 +345,10 @@ def analyze(filename):
     voiced = smooth[smooth > 0]
     print()
     print("Pitch found in", len(voiced), "of", len(frames), "frames")
-    print("Average pitch:", round(np.mean(voiced), 1), "Hz")
-    print("Lowest pitch:", round(np.min(voiced), 1), "Hz")
-    print("Highest pitch:", round(np.max(voiced), 1), "Hz")
+    if len(voiced) > 0:
+        print("Average pitch:", round(np.mean(voiced), 1), "Hz")
+        print("Lowest pitch:", round(np.min(voiced), 1), "Hz")
+        print("Highest pitch:", round(np.max(voiced), 1), "Hz")
 
     notes = get_notes(smooth, rate)
     print()
@@ -356,7 +362,8 @@ def analyze(filename):
 
     plot_waveform(samples, rate, silent_parts, filename)
     plot_spectrogram(frames, rate, filename)
-    plot_pitch(pitches, smooth, rate, filename)
+    if len(voiced) > 0:
+        plot_pitch(pitches, smooth, rate, filename)
 
 
 def get_pitch_curve(filename):
@@ -372,7 +379,10 @@ def show_real_notes(filename):
     samples, rate, smooth = get_pitch_curve(filename)
     print()
     print("Looking for the notes you really sing in", filename)
-    table, midi, tuning = find_real_notes(smooth)
+    found = find_real_notes(smooth)
+    if found == None:
+        return
+    table, midi, tuning = found
 
     print()
     print("Your tuning:", round(tuning * 100), "cents from A = 440 Hz")
@@ -386,7 +396,11 @@ def compare_recordings(first, second):
     offsets = {}
     for filename in [first, second]:
         samples, rate, smooth = get_pitch_curve(filename)
-        table, midi, tuning = find_real_notes(smooth, show_scores=False)
+        found = find_real_notes(smooth, show_scores=False)
+        if found == None:
+            print("Not enough singing in", filename, "to compare it")
+            return
+        table, midi, tuning = found
         real = []
         for i in range(len(table)):
             if table.loc[i, "kind"] == "normal":
