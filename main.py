@@ -26,6 +26,9 @@ def read_wav(filename):
 
     # 16 bit samples (-32768 to 32767)
     samples = np.frombuffer(raw, dtype=np.int16)
+    # stereo is L R L R ...
+    if channels > 1:
+        samples = samples.reshape(-1, channels).mean(axis=1)
     # int16 overflowed when squaring
     samples = samples / 32768
     return samples, rate, channels, width
@@ -56,6 +59,10 @@ def find_silent_parts(volume, rate, min_length=0.3):
             if t - start >= min_length:
                 parts.append((start, t))
             start = None
+
+    end = len(volume) * HOP / rate
+    if start != None and end - start >= min_length:
+        parts.append((start, end))
     return parts
 
 
@@ -116,7 +123,7 @@ def freq_to_note(freq):
     midi = 69 + 12 * np.log2(freq / 440)
     nearest = int(round(midi))
     cents = int(round((midi - nearest) * 100))
-    octave = int(midi / 12) - 1
+    octave = nearest // 12 - 1
     return NOTE_NAMES[nearest % 12] + str(octave), cents
 
 
