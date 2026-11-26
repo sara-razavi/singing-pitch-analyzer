@@ -382,6 +382,39 @@ def show_real_notes(filename):
     plot_real_notes(midi, table, tuning, filename)
 
 
+def compare_recordings(first, second):
+    offsets = {}
+    for filename in [first, second]:
+        samples, rate, smooth = get_pitch_curve(filename)
+        table, midi, tuning = find_real_notes(smooth, show_scores=False)
+        real = []
+        for i in range(len(table)):
+            if table.loc[i, "kind"] == "normal":
+                real.append(table.loc[i, "note"])
+            else:
+                real.append(table.loc[i, "note"] + " " + table.loc[i, "kind"])
+        between = len(table[table["kind"] != "normal"])
+
+        print()
+        print(filename)
+        print("Tuning:", round(tuning * 100), "cents, notes between the 12 notes:", between)
+        print("Notes:", ", ".join(real))
+
+        m = midi - tuning
+        offsets[filename] = (m - np.round(m)) * 100
+
+    plt.figure(figsize=(10, 5))
+    for filename in [first, second]:
+        o = offsets[filename]
+        plt.hist(o, bins=np.arange(-50, 55, 5), alpha=0.5, weights=np.ones(len(o)) * 100 / len(o), label=filename)
+    plt.axvline(0, color="gray", linestyle="--")
+    plt.title("How far from the 12 normal notes (after the tuning)")
+    plt.xlabel("Cents from the nearest note")
+    plt.ylabel("% of the frames")
+    plt.legend()
+    plt.show()
+
+
 print("Singing Pitch Analyzer")
 print("----------------------")
 
@@ -389,7 +422,8 @@ while True:
     print()
     print("1. Analyze a recording")
     print("2. Find the notes I really sing")
-    print("3. Exit")
+    print("3. Compare two recordings")
+    print("4. Exit")
     choice = input("Choose: ").strip()
 
     if choice == "1":
@@ -401,6 +435,12 @@ while True:
         if filename != None:
             show_real_notes(filename)
     elif choice == "3":
+        first = choose_recording("First recording:")
+        if first != None:
+            second = choose_recording("Second recording:")
+            if second != None:
+                compare_recordings(first, second)
+    elif choice == "4":
         break
     else:
-        print("Choose 1, 2 or 3")
+        print("Choose 1, 2, 3 or 4")

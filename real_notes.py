@@ -29,7 +29,7 @@ def stable_midi(pitches):
     return np.array(result)
 
 
-def find_real_notes(pitches):
+def find_real_notes(pitches, show_scores=True):
     midi = stable_midi(pitches)
     x = midi.reshape(-1, 1)
 
@@ -40,11 +40,13 @@ def find_real_notes(pitches):
         labels = model.fit_predict(x)
         # too slow with all the frames
         score = silhouette_score(x, labels, sample_size=2000, random_state=0)
-        print("k =", k, "->", round(score, 3))
+        if show_scores:
+            print("k =", k, "->", round(score, 3))
         if score > best_score:
             best_k = k
             best_score = score
-    print("Best k:", best_k)
+    if show_scores:
+        print("Best k:", best_k)
 
     model = KMeans(n_clusters=best_k, n_init=10, random_state=0)
     labels = model.fit_predict(x)
