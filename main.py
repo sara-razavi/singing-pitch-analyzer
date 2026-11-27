@@ -229,6 +229,7 @@ def save_results(name, pitches, smooth, notes, rate):
         "note": note_names,
         "cents": cents
     })
+    os.makedirs("results", exist_ok=True)
     frames_table.to_csv("results/" + name + "_pitch.csv", index=False)
     notes.to_csv("results/" + name + "_notes.csv", index=False)
 
@@ -299,6 +300,8 @@ def plot_pitch(pitches, smooth, rate, title):
 
 
 def list_recordings():
+    if not os.path.exists(FOLDER):
+        os.makedirs(FOLDER)
     files = []
     for name in sorted(os.listdir(FOLDER)):
         if name.lower().endswith(".wav"):
@@ -308,13 +311,20 @@ def list_recordings():
 
 def choose_recording(question):
     files = list_recordings()
+    if len(files) == 0:
+        print("No wav files in the", FOLDER, "folder yet")
+        return None
     print()
     for i in range(len(files)):
         print(str(i + 1) + ".", files[i])
     answer = input(question + " ").strip()
 
     if answer.isdigit():
-        return files[int(answer) - 1]
+        number = int(answer)
+        if number < 1 or number > len(files):
+            print("There is no recording", number)
+            return None
+        return files[number - 1]
     if not answer.lower().endswith(".wav"):
         answer = answer + ".wav"
     if answer not in files:
